@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0}</style>
+<title>Zəng Saatları</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b6b66">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zəng">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;600&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column. Live Baku clock, zone cards ranked by call quality, hourly grid, then a city lookup that opens a detail card. */
+:root {
+  --bg: #f1f4f5;
+  --surface: #ffffff;
+  --fg: #12201f;
+  --muted: #5a6b6a;
+  --line: #d5dddd;
+  --accent: #0b6b66;
+  --accent-fg: #ffffff;
+  --best-bg: #d4f0df;
+  --best-fg: #0c5a2e;
+  --ok-bg: #fbeec2;
+  --ok-fg: #6a4a00;
+  --low-bg: #e6eaea;
+  --low-fg: #4c5b5a;
+  --bad-bg: #f6dcd8;
+  --bad-fg: #8a2a1e;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1415;
+    --surface: #162021;
+    --fg: #e4eeed;
+    --muted: #93a6a4;
+    --line: #2a3a3a;
+    --accent: #4fc3bb;
+    --accent-fg: #07201e;
+    --best-bg: #13422a;
+    --best-fg: #9be6b8;
+    --ok-bg: #46380a;
+    --ok-fg: #f1d680;
+    --low-bg: #223030;
+    --low-fg: #9db0ae;
+    --bad-bg: #4a1f1a;
+    --bad-fg: #f2a99f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1415;
+  --surface: #162021;
+  --fg: #e4eeed;
+  --muted: #93a6a4;
+  --line: #2a3a3a;
+  --accent: #4fc3bb;
+  --accent-fg: #07201e;
+  --best-bg: #13422a;
+  --best-fg: #9be6b8;
+  --ok-bg: #46380a;
+  --ok-fg: #f1d680;
+  --low-bg: #223030;
+  --low-fg: #9db0ae;
+  --bad-bg: #4a1f1a;
+  --bad-fg: #f2a99f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: 26px; line-height: 1.15; }
+h2 { font-size: 19px; }
+h3 { font-size: 20px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+.muted { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+
+.clock { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.clock-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.clock-time { font-family: var(--font-mono); font-size: 40px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.clock-date { color: var(--muted); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.card-name { font-weight: 600; }
+.card-time { font-family: var(--font-mono); font-size: 26px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.card-states { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+.s-best { background: var(--best-bg); color: var(--best-fg); }
+.s-ok { background: var(--ok-bg); color: var(--ok-fg); }
+.s-lunch, .s-off { background: var(--low-bg); color: var(--low-fg); }
+.s-weekend { background: var(--bad-bg); color: var(--bad-fg); }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 340px; font-size: 12.5px; }
+th, td { padding: 8px 2px; text-align: center; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg); }
+th small { display: block; font-weight: 400; font-size: 10px; }
+td.baku { text-align: left; padding-left: 10px; font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+td.baku span { display: block; font-family: var(--font-body); font-weight: 400; font-size: 11px; color: var(--accent); }
+td.cell { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+td.cell.s-best { background: var(--best-bg); color: var(--best-fg); font-weight: 600; }
+td.cell.s-ok { background: var(--ok-bg); color: var(--ok-fg); }
+td.cell.s-lunch, td.cell.s-off { background: transparent; color: var(--muted); }
+td.cell.s-weekend { background: var(--bad-bg); color: var(--bad-fg); }
+tr.mine td.baku { box-shadow: inset 3px 0 0 var(--accent); }
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 13px; color: var(--muted); }
+input[type="search"] {
+  font: inherit; font-size: 16px; color: var(--fg); background: var(--surface); width: 100%;
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.results { display: flex; flex-direction: column; gap: 6px; }
+.result {
+  font: inherit; text-align: left; color: var(--fg); cursor: pointer; width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.result[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.result-name { font-weight: 600; }
+.result-sub { font-size: 13px; color: var(--muted); }
+
+.detail { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.detail-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.detail-tz { font-size: 13px; color: var(--muted); }
+.big-time { font-family: var(--font-mono); font-size: 34px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.big-day { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.rows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row-label { color: var(--muted); font-size: 13px; }
+.row-val { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.tag { font-family: var(--font-body); font-size: 11px; font-weight: 600; background: var(--accent); color: var(--accent-fg); padding: 1px 7px; border-radius: 99px; margin-left: 6px; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Zəng saatları</h1>
+  </header>
+
+  <div class="clock">
+    <div class="clock-top">
+      <div class="clock-time" id="bakuTime">--:--</div>
+      <div class="clock-date" id="bakuDate">Bakı</div>
+    </div>
+    <div id="summary"></div>
+  </div>
+
+  <section>
+    <h2>İndi hansı ştatlara</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2>Gün cədvəli</h2>
+    <div class="tablewrap"><table id="grid"></table></div>
+    <div class="note">Yaşıl: yaxşı vaxt. Sarı: uyğun. Boz: nahar və ya iş saatından kənar. Qırmızı: həftəsonu. Sütunlar saat qurşaqlarıdır: ET Şərq (New York, Florida, Connecticut...), CT Mərkəz (Texas, Illinois...), MT Dağ, PT Sakit okean. 1 noyabrdan sonra fərq 9 saat olur, cədvəl özü düzəlir.</div>
+  </section>
+
+  <section>
+    <h2>Şəhər axtar</h2>
+    <div class="field">
+      <label for="q">Şəhər və ya ştat (məsələn Houston, Phoenix, Ohio)</label>
+      <input type="search" id="q" autocomplete="off">
+    </div>
+    <div class="results" id="results"></div>
+    <div id="detail"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var ZONES = [
+    { k: "ET", tz: "America/New_York", name: "Şərq", abbr: "ET" },
+    { k: "CT", tz: "America/Chicago", name: "Mərkəz", abbr: "CT" },
+    { k: "MT", tz: "America/Denver", name: "Dağ", abbr: "MT" },
+    { k: "PT", tz: "America/Los_Angeles", name: "Sakit okean", abbr: "PT" },
+    { k: "AZ", tz: "America/Phoenix", name: "Arizona", abbr: "AZ" }
+  ];
+  function zoneOf(k) { return ZONES.filter(function (z) { return z.k === k; })[0]; }
+
+  var NAMES = {AL:"Alabama",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",DC:"Washington DC",FL:"Florida",GA:"Georgia",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"};
+  var BY_ZONE = {
+    ET: "CT DE DC FL* GA IN* ME MD MA MI* NH NJ NY NC OH PA RI SC VT VA WV KY*",
+    CT: "AL AR IL IA LA MN MS MO OK WI TX* KS* NE* SD* ND* TN*",
+    MT: "CO ID* MT NM UT WY",
+    PT: "CA NV OR* WA",
+    AZ: "AZ"
+  };
+  var STATES = [];
+  Object.keys(BY_ZONE).forEach(function (z) {
+    BY_ZONE[z].split(" ").forEach(function (s) {
+      var ab = s.replace("*", "");
+      STATES.push({ ab: ab, name: NAMES[ab], zone: z, split: s.indexOf("*") > -1 });
+    });
+  });
+
+  // City|State|Zone. The zone is the city's own, not the state's majority.
+  var CITY_DATA = [
+    "ET:New York,NY;Buffalo,NY;Rochester,NY;Albany,NY;Syracuse,NY;Philadelphia,PA;Pittsburgh,PA;Allentown,PA;Harrisburg,PA;Boston,MA;Worcester,MA;Springfield,MA;Providence,RI;Hartford,CT;New Haven,CT;Stamford,CT;Newark,NJ;Jersey City,NJ;Trenton,NJ;Baltimore,MD;Washington,DC;Richmond,VA;Virginia Beach,VA;Norfolk,VA;Alexandria,VA;Charlotte,NC;Raleigh,NC;Greensboro,NC;Durham,NC;Fayetteville,NC;Wilmington,NC;Charleston,SC;Columbia,SC;Greenville,SC;Atlanta,GA;Savannah,GA;Augusta,GA;Macon,GA;Columbus,GA;Miami,FL;Orlando,FL;Tampa,FL;Jacksonville,FL;Fort Lauderdale,FL;St. Petersburg,FL;Tallahassee,FL;Fort Myers,FL;West Palm Beach,FL;Detroit,MI;Grand Rapids,MI;Lansing,MI;Ann Arbor,MI;Columbus,OH;Cleveland,OH;Cincinnati,OH;Toledo,OH;Akron,OH;Dayton,OH;Indianapolis,IN;Fort Wayne,IN;Louisville,KY;Lexington,KY;Burlington,VT;Manchester,NH;Portland,ME;Wilmington,DE;Charleston,WV;Knoxville,TN;Chattanooga,TN",
+    "CT:Chicago,IL;Springfield,IL;Naperville,IL;Milwaukee,WI;Madison,WI;Green Bay,WI;Minneapolis,MN;St. Paul,MN;Des Moines,IA;Cedar Rapids,IA;Kansas City,MO;St. Louis,MO;Springfield,MO;Omaha,NE;Lincoln,NE;Wichita,KS;Overland Park,KS;Topeka,KS;Oklahoma City,OK;Tulsa,OK;Dallas,TX;Houston,TX;San Antonio,TX;Austin,TX;Fort Worth,TX;Plano,TX;Arlington,TX;Corpus Christi,TX;Lubbock,TX;Laredo,TX;McAllen,TX;Little Rock,AR;Memphis,TN;Nashville,TN;New Orleans,LA;Baton Rouge,LA;Shreveport,LA;Jackson,MS;Birmingham,AL;Montgomery,AL;Huntsville,AL;Mobile,AL;Pensacola,FL;Sioux Falls,SD;Fargo,ND;Bismarck,ND;Evansville,IN;Bowling Green,KY",
+    "MT:Denver,CO;Colorado Springs,CO;Aurora,CO;Fort Collins,CO;Salt Lake City,UT;Provo,UT;Boise,ID;Idaho Falls,ID;Pocatello,ID;Albuquerque,NM;Santa Fe,NM;Las Cruces,NM;Billings,MT;Missoula,MT;Cheyenne,WY;Casper,WY;El Paso,TX;Rapid City,SD",
+    "AZ:Phoenix,AZ;Tucson,AZ;Mesa,AZ;Scottsdale,AZ;Chandler,AZ;Tempe,AZ;Glendale,AZ;Gilbert,AZ;Flagstaff,AZ",
+    "PT:Los Angeles,CA;San Diego,CA;San Jose,CA;San Francisco,CA;Sacramento,CA;Fresno,CA;Oakland,CA;Long Beach,CA;Bakersfield,CA;Anaheim,CA;Riverside,CA;Irvine,CA;Santa Ana,CA;Stockton,CA;Las Vegas,NV;Reno,NV;Henderson,NV;Portland,OR;Salem,OR;Eugene,OR;Seattle,WA;Spokane,WA;Tacoma,WA;Vancouver,WA;Bellevue,WA"
+  ];
+  var CITIES = [];
+  CITY_DATA.forEach(function (row) {
+    var i = row.indexOf(":");
+    var z = row.slice(0, i);
+    row.slice(i + 1).split(";").forEach(function (c) {
+      var p = c.split(",");
+      CITIES.push({ kind: "city", name: p[0], st: p[1], zone: z });
+    });
+  });
+
+  var fmtCache = {};
+  function fullParts(tz, d) {
+    var f = fmtCache[tz];
+    if (!f) {
+      f = fmtCache[tz] = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", weekday: "short"
+      });
+    }
+    var o = {};
+    f.formatToParts(d).forEach(function (p) { o[p.type] = p.value; });
+    return { y: +o.year, mo: +o.month, d: +o.day, h: +o.hour, mi: +o.minute, wd: o.weekday };
+  }
+  function offsetMin(tz, d) {
+    var p = fullParts(tz, d);
+    return (Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, 0) - Math.floor(d.getTime() / 60000) * 60000) / 60000;
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function hm(p) { return pad(p.h) + ":" + pad(p.mi); }
+  function status(p) {
+    if (p.wd === "Sat" || p.wd === "Sun") return { k: "weekend", label: "Həftəsonu", rank: 4 };
+    var t = p.h + p.mi / 60;
+    if ((t >= 9.5 && t < 11.5) || (t >= 14 && t < 16.5)) return { k: "best", label: "Yaxşı", rank: 0 };
+    if ((t >= 9 && t < 9.5) || (t >= 11.5 && t < 12) || (t >= 13.5 && t < 14) || (t >= 16.5 && t < 17)) return { k: "ok", label: "Uyğun", rank: 1 };
+    if (t >= 12 && t < 13.5) return { k: "lunch", label: "Nahar", rank: 2 };
+    return { k: "off", label: "İş saatından kənar", rank: 3 };
+  }
+  var DAYS = { Mon: "bazar ertəsi", Tue: "çərşənbə axşamı", Wed: "çərşənbə", Thu: "cümə axşamı", Fri: "cümə", Sat: "şənbə", Sun: "bazar" };
+  var MONTHS = ["yanvar","fevral","mart","aprel","may","iyun","iyul","avqust","sentyabr","oktyabr","noyabr","dekabr"];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var selected = null;
+
+  function bakuLabel(h, m) {
+    return pad(h % 24) + ":" + pad(m) + (h >= 24 ? " +1" : "");
+  }
+
+  // Best-call windows for one zone on the given Baku date, in Baku time.
+  function bestWindows(tz, b) {
+    var out = [], cur = null;
+    for (var s = 24; s <= 60; s++) { // half-hour slots from 12:00 to 30:00 Baku
+      var hh = s / 2;
+      var h = Math.floor(hh), m = (hh - h) * 60;
+      var inst = new Date(Date.UTC(b.y, b.mo - 1, b.d, h - 4, m));
+      var isBest = status(fullParts(tz, inst)).k === "best";
+      if (isBest && !cur) cur = { start: hh, inst: inst };
+      if (!isBest && cur) { cur.end = hh; cur.endInst = inst; out.push(cur); cur = null; }
+    }
+    if (cur) { cur.end = 30; cur.endInst = new Date(Date.UTC(b.y, b.mo - 1, b.d, 26, 0)); out.push(cur); }
+    return out;
+  }
+  function hhmm(x) { var h = Math.floor(x), m = Math.round((x - h) * 60); return bakuLabel(h, m); }
+  function overlap(a0, a1, b0, b1) { return Math.min(a1, b1) > Math.max(a0, b0); }
+
+  function nextBest(tz, now) {
+    for (var i = 0; i <= 72 * 4; i++) {
+      var t = new Date(now.getTime() + i * 15 * 60000);
+      if (status(fullParts(tz, t)).k === "best") return { mins: i * 15, at: t };
+    }
+    return null;
+  }
+  function dur(mins) {
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return (h ? h + " saat " : "") + (m || !h ? m + " dəq" : "");
+  }
+
+  function render() {
+    var now = new Date();
+    var b = fullParts("Asia/Baku", now);
+    $("bakuTime").textContent = pad(b.h) + ":" + pad(b.mi);
+    $("bakuDate").textContent = "Bakı, " + b.d + " " + MONTHS[b.mo - 1] + ", " + DAYS[b.wd];
+
+    var info = ZONES.map(function (z) {
+      var p = fullParts(z.tz, now);
+      return { z: z, p: p, s: status(p) };
+    });
+    var good = info.filter(function (i) { return i.s.k === "best" || i.s.k === "ok"; });
+    $("summary").innerHTML = good.length
+      ? "Zəng üçün uyğun: <b>" + good.map(function (i) { return i.z.abbr; }).join(", ") + "</b>"
+      : "İndi heç bir qurşaqda yaxşı vaxt deyil.";
+
+    var sorted = info.slice().sort(function (a, c) { return a.s.rank - c.s.rank; });
+    $("cards").innerHTML = sorted.map(function (i) {
+      var st = STATES.filter(function (s) { return s.zone === i.z.k; })
+        .map(function (s) { return s.ab + (s.split ? "*" : ""); }).join(" ");
+      return '<div class="card"><div class="card-head"><span class="card-name">' + i.z.name + " (" + i.z.abbr + ')</span>' +
+        '<span class="pill s-' + i.s.k + '">' + i.s.label + "</span></div>" +
+        '<div class="card-time">' + hm(i.p) + " <small class=\"muted\" style=\"font-size:13px\">" + i.p.wd + "</small></div>" +
+        '<div class="card-states">' + st + "</div></div>";
+    }).join("");
+
+    var head = '<thead><tr><th style="text-align:left;padding-left:12px">Bakı</th>' +
+      ZONES.map(function (z) { return "<th>" + z.abbr + "<small>" + z.name + "</small></th>"; }).join("") + "</tr></thead>";
+    var rows = "";
+    for (var hh = 16; hh <= 27; hh++) {
+      var inst = new Date(Date.UTC(b.y, b.mo - 1, b.d, hh - 4, 0));
+      var cells = ZONES.map(function (z) {
+        var p = fullParts(z.tz, inst);
+        return '<td class="cell s-' + status(p).k + '">' + hm(p) + "</td>";
+      }).join("");
+      rows += '<tr><td class="baku">' + bakuLabel(hh, 0) + "</td>" + cells + "</tr>";
+    }
+    $("grid").innerHTML = head + "<tbody>" + rows + "</tbody>";
+
+    renderDetail(now, b);
+  }
+
+  function renderResults() {
+    var q = $("q").value.trim().toLowerCase();
+    var box = $("results");
+    if (!q) { box.innerHTML = ""; return; }
+    var cityHits = CITIES.filter(function (c) {
+      return c.name.toLowerCase().indexOf(q) === 0 || c.name.toLowerCase().indexOf(" " + q) > -1;
+    });
+    var stateHits = STATES.filter(function (s) {
+      return s.name.toLowerCase().indexOf(q) === 0 || s.ab.toLowerCase() === q;
+    });
+    var hits = cityHits.slice(0, 8).map(function (c) { return { kind: "city", name: c.name, st: c.st, zone: c.zone }; })
+      .concat(stateHits.slice(0, 3).map(function (s) { return { kind: "state", name: s.name, st: s.ab, zone: s.zone, split: s.split }; }));
+    if (!hits.length) {
+      box.innerHTML = '<div class="note">Bu şəhər siyahıda yoxdur. Ştatın adını yaz, ştatın saat qurşağını göstərim.</div>';
+      return;
+    }
+    var warn = "";
+    if (q === "ct") warn = '<div class="note">Diqqət: CT həm Connecticut ştatının qısaltmasıdır (o, Şərq qurşağındadır, ET), həm də Mərkəz saat qurşağının (Central Time). Mərkəz qurşağındakı ştatlar: Texas, Illinois, Alabama və s.</div>';
+    if (q === "mt") warn = '<div class="note">Diqqət: MT həm Montana ştatının qısaltmasıdır, həm də Dağ saat qurşağının (Mountain Time).</div>';
+    box.innerHTML = warn + hits.map(function (h, i) {
+      var z = zoneOf(h.zone);
+      var p = fullParts(z.tz, new Date());
+      var key = h.kind + "|" + h.name + "|" + h.st;
+      var on = selected && selected.key === key;
+      return '<button type="button" class="result" data-i="' + i + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+        "<span><span class=\"result-name\">" + h.name + (h.kind === "city" ? ", " + h.st : ", " + h.st + " (ştat)") + "</span><br>" +
+        '<span class="result-sub">' + z.name + " qurşağı (" + z.abbr + ") · " + hm(p) + "</span></span>" +
+        '<span class="pill s-' + status(p).k + '">' + status(p).label + "</span></button>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("button"), function (btn) {
+      btn.addEventListener("click", function () {
+        var h = hits[+btn.getAttribute("data-i")];
+        selected = { key: h.kind + "|" + h.name + "|" + h.st, item: h };
+        renderResults();
+        render();
+        $("detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    });
+  }
+
+  function renderDetail(now, b) {
+    var box = $("detail");
+    if (!selected) { box.innerHTML = ""; return; }
+    var h = selected.item;
+    var z = zoneOf(h.zone);
+    var p = fullParts(z.tz, now);
+    var s = status(p);
+    var diff = (240 - offsetMin(z.tz, now)) / 60;
+    var title = h.kind === "city" ? h.name + ", " + NAMES[h.st] : h.name;
+
+    var wins = bestWindows(z.tz, b);
+    var winRows = wins.length ? wins.map(function (w) {
+      var tags = "";
+      var lp0 = fullParts(z.tz, w.inst), lp1 = fullParts(z.tz, w.endInst);
+      return '<div class="row"><span class="row-label">Bakı ' + hhmm(w.start) + "–" + hhmm(w.end) + tags +
+        '</span><span class="row-val">orada ' + hm(lp0) + "–" + hm(lp1) + "</span></div>";
+    }).join("") : '<div class="row"><span class="row-label">Bu gün Bakı üzrə yaxşı vaxt yoxdur</span><span class="row-val">həftəsonu</span></div>';
+
+    var nb = nextBest(z.tz, now);
+    var nextVal = !nb ? "tapılmadı" : nb.mins === 0 ? "indi" : dur(nb.mins) + " sonra (Bakı " + hm(fullParts("Asia/Baku", nb.at)) + ")";
+
+    var notes = [];
+    if (h.kind === "state" && h.split) notes.push("Ştatın bir hissəsi başqa saat qurşağındadır. Sexin şəhərinə görə yoxla.");
+    if (h.zone === "AZ") notes.push("Arizona yay vaxtına keçmir. Yayda Sakit okean vaxtı ilə, qışda Dağ vaxtı ilə eyni olur.");
+    if (h.kind === "city" && h.st === "TN" && h.zone === "ET") notes.push("Tennessi ştatının şərqi ET, qalanı CT saatındadır.");
+    if (h.kind === "city" && h.st === "TX" && h.zone === "MT") notes.push("El Paso Texasın qalanından bir saat geridir.");
+
+    box.innerHTML = '<div class="detail">' +
+      '<div class="detail-top"><div><h3>' + title + '</h3><div class="detail-tz">' + z.name + " saat qurşağı (" + z.abbr + ")</div></div>" +
+      '<span class="pill s-' + s.k + '">' + s.label + "</span></div>" +
+      '<div><div class="big-time">' + hm(p) + '</div><div class="big-day">' + p.wd + " · " + DAYS[p.wd] + "</div></div>" +
+      '<div class="rows">' +
+        '<div class="row"><span class="row-label">Bakı ilə fərq</span><span class="row-val">' + diff + " saat</span></div>" +
+        '<div class="row"><span class="row-label">Növbəti yaxşı vaxt</span><span class="row-val">' + nextVal + "</span></div>" +
+      "</div>" +
+      '<div><div class="row-label" style="margin-bottom:4px">Bu gün yaxşı vaxtlar</div><div class="rows">' + winRows + "</div></div>" +
+      (notes.length ? '<div class="note">' + notes.join(" ") + "</div>" : "") +
+      "</div>";
+  }
+
+  $("q").addEventListener("input", renderResults);
+  render();
+  setInterval(function () { render(); if ($("q").value.trim()) renderResults(); }, 20000);
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
